@@ -22,8 +22,8 @@ class WaterRocket:
         self.nozzle_r = 0.01
         self.nozzle_a = pi * self.nozzle_r**2
         self.bottle_a = pi * (0.05)**2
-        self.Cd_nozzle = 1.0
-        self.Cd_drag = 1.0
+        self.Cd_nozzle = 0.8
+        self.Cd_drag = 0.6
 
         # --- Initial conditions ---
         self.P0 = 400000.0           # absolute pressure in bottle [Pa]
@@ -58,6 +58,12 @@ class WaterRocket:
             self.update()
             self.step_air_choked(dt)
         print("--- Choked air stage over ---")
+        
+        # --- Air expulsion (unchoked) ---
+        while self.P > self.P_amb:
+            self.update()
+            self.step_air_unchoked(dt)
+        print("--- Unchoked air stage over ---")
 
         # --- Coasting phase ---
         while self.speed > 0 or self.height > 0:
@@ -127,6 +133,57 @@ class WaterRocket:
         self.thrust = thrust
 
     # ----------------------------------
+    # Air expulsion stage (unchoked)
+    # ----------------------------------
+    def step_air_unchoked(self, dt):
+        gamma = self.gamma
+        R = self.R
+        Cd = self.Cd_nozzle
+        A_nozzle = self.nozzle_a
+        P0 = self.P
+        T0 = self.T_air
+        P_amb = self.P_amb
+
+        # --- Compute exit Mach number from isentropic relations ---
+        # For unchoked flow, P_exit = P_amb, solve for Mach_exit iteratively
+        def func(M):
+            return P0 / P_amb - (1 + (gamma - 1) / 2 * M**2) ** (gamma / (gamma - 1))
+
+        # Simple Newton-Raphson or bounded iteration to estimate exit Mach
+        M_e = 0.2
+        for _ in range(20):
+            f = func(M_e)
+            df = -gamma * M_e * (1 + (gamma - 1) / 2 * M_e**2) ** (1 / (gamma - 1))
+            M_e -= f / (df + 1e-9)
+            M_e = max(1e-5, min(M_e, 1.0))  # constrain to subsonic regime
+
+        # --- Exit temperature, pressure, and velocity ---
+        T_e = T0 / (1 + (gamma - 1) / 2 * M_e**2)
+        P_e = P_amb  # unchoked → exit pressure = ambient
+        v_e = M_e * np.sqrt(gamma * R * T_e)
+
+        # --- Mass flow rate (isentropic relation) ---
+        rho_e = P_e / (R * T_e)
+        m_dot = Cd * A_nozzle * rho_e * v_e
+
+        # --- Thrust (momentum + pressure differential) ---
+        thrust = m_dot * v_e + (P_e - P_amb) * A_nozzle  # second term ≈ 0
+
+        # --- Update internal air state (mass and pressure) ---
+        self.air_mass -= m_dot * dt
+        if self.air_mass < 0:
+            self.air_mass = 0
+        self.P = self.P0 * (self.air_mass / self.air_mass0) ** self.gamma
+
+        # --- Motion integration ---
+        net_force = thrust - self.drag_force() - self.total_mass() * self.g
+        acc = net_force / self.total_mass()
+        self.speed += acc * dt
+        self.height += self.speed * dt
+        self.time += dt
+        self.thrust = thrust
+
+    # ----------------------------------
     # Coasting stage
     # ----------------------------------
     def step_coast(self, dt):
@@ -171,6 +228,8 @@ class WaterRocket:
 
     def plot(self):
         df = self.result
+        a = df.max()
+        print("Peak Values \n", a)
         fig, ax1 = plt.subplots(figsize=(8, 5))
         ax1.plot(df.time, df.height, label="Height [m]")
         ax1.plot(df.time, df.speed, label="Speed [m/s]")
