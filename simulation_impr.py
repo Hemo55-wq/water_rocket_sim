@@ -5,7 +5,16 @@ import matplotlib.pyplot as plt
 
 
 class WaterRocket:
-    def __init__(self, ):
+    def __init__(self, 
+                 pressure = 400000.0, 
+                 bottle_volume = 0.0015, 
+                 bottle_empty_mass = 0.15,
+                 nozzle_r = 0.01, 
+                 bottle_r = 0.05, 
+                 cd_nozzle = 0.8, 
+                 Coefficient_of_drag = 0.6,
+                 water_mass = 0.5, 
+                 ):
         # --- Physical constants ---
         self.g = 9.81
         self.rho_air = 1.225
@@ -17,17 +26,17 @@ class WaterRocket:
         self.P_amb = 101325.0  # absolute atmospheric pressure
 
         # --- Geometry ---
-        self.bottle_volume = 0.0015  # m³
-        self.bottle_empty_mass = 0.15  # kg
-        self.nozzle_r = 0.01
+        self.bottle_volume = bottle_volume  # m³
+        self.bottle_empty_mass = bottle_empty_mass  # kg
+        self.nozzle_r = nozzle_r
         self.nozzle_a = pi * self.nozzle_r**2
-        self.bottle_a = pi * (0.05)**2
-        self.Cd_nozzle = 0.8
-        self.Cd_drag = 0.6
+        self.bottle_a = pi * (bottle_r)**2
+        self.Cd_nozzle = cd_nozzle
+        self.Cd_drag = Coefficient_of_drag
 
         # --- Initial conditions ---
-        self.P0 = 400000.0           # absolute pressure in bottle [Pa]
-        self.water_mass0 = 0.5       # kg
+        self.P0 = pressure         # absolute pressure in bottle [Pa]
+        self.water_mass0 = water_mass       # kg
         self.water_mass = self.water_mass0
         self.air_volume0 = self.bottle_volume - self.water_mass0 / self.rho_water
         self.air_mass0 = (self.P0 * self.air_volume0) / (self.R * self.T_air)
@@ -64,7 +73,9 @@ class WaterRocket:
             self.update()
             self.step_air_unchoked(dt)
         print("--- Unchoked air stage over ---")
-
+        
+        self.plot()
+        
         # --- Coasting phase ---
         while self.speed > 0 or self.height > 0:
             self.update()
