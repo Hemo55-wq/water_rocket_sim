@@ -74,7 +74,6 @@ class WaterRocket:
             self.step_air_unchoked(dt)
         print("--- Unchoked air stage over ---")
         
-        self.plot()
         
         # --- Coasting phase ---
         while self.speed > 0 or self.height > 0:
@@ -237,25 +236,31 @@ class WaterRocket:
         })
         self.result = pd.concat([self.result, step], ignore_index=True)
 
-    def plot(self):
+    def plot(self, ax, title = "Water Rocket Simulation"):
         df = self.result
         a = df.max()
         print("Peak Values \n", a)
-        fig, ax1 = plt.subplots(figsize=(8, 5))
-        ax1.plot(df.time, df.height, label="Height [m]")
-        ax1.plot(df.time, df.speed, label="Speed [m/s]")
-        ax1.plot(df.time, df.thrust / 10, label="Thrust [N/10]")
-        ax1.set_xlabel("Time [s]")
-        ax1.set_ylabel("Values")
-        ax1.legend()
-        plt.title("Water Rocket Simulation (Absolute Pressure)")
-        plt.show()
+        ax.plot(df.time, df.height, label="Height [m]")
+        ax.plot(df.time, df.speed, label="Speed [m/s]")
+        ax.plot(df.time, df.thrust / 10, label="Thrust [N/10]")
+        ax.set_xlabel("Time [s]")
+        ax.set_ylabel("Values")
+        ax.legend()
+        ax.set_title(title)
+        
 
 
 # ----------------------------------
 # Run
 # ----------------------------------
 if __name__ == "__main__":
+    
+    fig, (ax1, ax2)   = plt.subplots(1,2, figsize=(16, 5))
     r = WaterRocket()
     r.simulate(dt=1e-4)
-    r.plot()
+    r.plot(ax1, title = "Test 01")
+    r2 = WaterRocket(pressure = 600000.0)
+    r2.simulate(dt=1e-4)
+    r2.plot(ax2, title = "Test 02")
+    plt.show()
+    
